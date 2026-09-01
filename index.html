@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZacHash — Server Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-top: #4a90c9;
+    --sky-bottom: #bfe7f5;
+    --grass: #6bad3a;
+    --grass-dark: #4d8a29;
+    --dirt: #8a5a34;
+    --dirt-dark: #5c3b22;
+    --stone: #9a9a9a;
+    --stone-dark: #6b6b6b;
+    --stone-light: #c6c6c6;
+    --panel: #c6c6c6;
+    --panel-dark: #373737;
+    --gold: #ffd257;
+    --ink: #2b2b2b;
+    --paper: #efe4c8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    font-family: 'VT323', monospace;
+    background:
+      linear-gradient(var(--sky-top), var(--sky-bottom) 70%);
+    image-rendering: pixelated;
+  }
+
+  /* distant blocky terrain along the bottom of the viewport */
+  body::before {
+    content: "";
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 14vh;
+    min-height: 90px;
+    background:
+      repeating-linear-gradient(90deg, var(--grass) 0 40px, var(--grass-dark) 40px 44px) top / 100% 22px no-repeat,
+      repeating-linear-gradient(90deg, var(--dirt) 0 40px, var(--dirt-dark) 40px 44px) bottom / 100% 100% no-repeat;
+    z-index: 0;
+  }
+
+  .panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    padding: 6px;
+    box-shadow:
+      inset 4px 4px 0 #eaeaea,
+      inset -4px -4px 0 #7c7c7c,
+      0 10px 0 rgba(0,0,0,0.25);
+  }
+
+  .panel-inner {
+    background: var(--panel-dark);
+    padding: 20px 22px 24px;
+    box-shadow: inset 0 0 0 4px #202020;
+  }
+
+  .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .grass-icon {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    background:
+      linear-gradient(var(--grass), var(--grass) 25%, var(--dirt) 25%);
+    box-shadow:
+      inset -6px 0 0 var(--grass-dark),
+      inset 0 -24px 0 var(--dirt-dark),
+      inset 6px -24px 0 rgba(0,0,0,0.15);
+  }
+
+  h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--paper);
+    margin: 0;
+    letter-spacing: 1px;
+  }
+
+  h1 span {
+    display: block;
+    font-size: 9px;
+    color: #9fd1ff;
+    margin-top: 4px;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 20px;
+    color: #c9c9c9;
+    margin-bottom: 20px;
+  }
+
+  .status-dot {
+    width: 12px;
+    height: 12px;
+    background: #b0413e;
+    box-shadow: inset -2px -2px 0 rgba(0,0,0,0.35);
+    flex: none;
+  }
+
+  .status-dot.online { background: #57c25e; }
+  .status-dot.pending { background: var(--gold); }
+
+  #start-btn {
+    width: 100%;
+    display: block;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    color: #dff7d8;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+    letter-spacing: 1px;
+    padding: 16px 10px;
+    background: var(--grass);
+    border: none;
+    cursor: pointer;
+    box-shadow:
+      inset 3px 3px 0 #8ed35b,
+      inset -3px -3px 0 var(--grass-dark),
+      0 4px 0 #274a17;
+  }
+
+  #start-btn:hover:not(:disabled) {
+    background: #79c246;
+  }
+
+  #start-btn:active:not(:disabled) {
+    box-shadow:
+      inset 3px 3px 0 var(--grass-dark),
+      inset -3px -3px 0 #8ed35b;
+    transform: translateY(4px);
+  }
+
+  #start-btn:disabled {
+    cursor: not-allowed;
+    background: var(--stone);
+    color: #e4e4e4;
+    box-shadow:
+      inset 3px 3px 0 var(--stone-light),
+      inset -3px -3px 0 var(--stone-dark),
+      0 4px 0 #4a4a4a;
+  }
+
+  #start-btn:focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: 3px;
+  }
+
+  .console {
+    margin-top: 18px;
+    background: #101010;
+    border: 4px solid #050505;
+    padding: 10px 12px;
+    min-height: 44px;
+    font-size: 19px;
+    color: #7fe07f;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .console:empty::before {
+    content: "> waiting for command...";
+    color: #4a4a4a;
+  }
+
+  .console.is-error { color: #ff7a6e; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .grass-icon { animation: bob 2.4s ease-in-out infinite; }
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+</style>
+</head>
+<body>
+
+  <div class="panel">
+    <div class="panel-inner">
+      <div class="titlebar">
+        <div class="grass-icon" aria-hidden="true"></div>
+        <h1>ZacHash<span>server control</span></h1>
+      </div>
+
+      <div class="status-row">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Offline</span>
+      </div>
+
+      <button id="start-btn" onclick="sendSignal('start')">Start Server</button>
+
+      <div class="console" id="output" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <script>
+    async function sendSignal(action) {
+      const output = document.getElementById('output');
+      const button = document.getElementById('start-btn');
+      const dot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+
+      output.classList.remove('is-error');
+      output.textContent = `> sending ${action} signal...`;
+      button.disabled = true;
+      button.textContent = 'Starting...';
+      dot.className = 'status-dot pending';
+      statusText.textContent = 'Starting';
+
+      try {
+        const response = await fetch('/.netlify/functions/power', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signal: action })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed request');
+        }
+
+        output.textContent = `> ${data.message}`;
+        dot.className = 'status-dot online';
+        statusText.textContent = 'Online';
+        button.textContent = 'Start Server';
+      } catch (err) {
+        output.textContent = `> error: ${err.message}`;
+        output.classList.add('is-error');
+        dot.className = 'status-dot';
+        statusText.textContent = 'Offline';
+        button.textContent = 'Start Server';
+      } finally {
+        button.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
